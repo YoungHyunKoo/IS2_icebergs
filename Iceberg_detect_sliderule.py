@@ -43,8 +43,8 @@ datapath = args.datapath
 resultpath = args.resultpath
 
 # Antarctic continent
-path = f"{datapath}\\USNIC_ANTARC_shelf_2022.shp"
-ice_shelf = gpd.read_file(path).to_crs('EPSG:3976') #.loc[1723:1723, :].reset_index(drop = True)
+antacric_file = f"{datapath}/USNIC_ANTARC_shelf_2022.shp"
+ice_shelf = gpd.read_file(antacric_file).to_crs('EPSG:3976') #.loc[1723:1723, :].reset_index(drop = True)
 
 w = [0.5, 1.0]
 
@@ -73,8 +73,8 @@ for lat0 in np.arange(-80, -60, w[0]*2):
             else:
                 print(f"{year} - Lat: {lat0}, Lon: {lon0}; No available ATL03 data ({t1:.1f} seconds)")
                 
-            ib_data.to_csv(f"{resultpath}\\Iceberg_table_{year}_{lat0}_{lon0}.csv")
-            with open(f"{resultpath}\\Iceberg_profile_{year}_{lat0}_{lon0}.pkl", "wb") as output:
+            ib_data.to_csv(f"{resultpath}/Iceberg_table_{year}_{lat0}_{lon0}.csv")
+            with open(f"{resultpath}/Iceberg_profile_{year}_{lat0}_{lon0}.pkl", "wb") as output:
                 pickle.dump(ib_raw, output)
             del gdf, ib_data, ib_raw
                     
