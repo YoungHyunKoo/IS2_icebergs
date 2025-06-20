@@ -2,7 +2,6 @@ import shapely.geometry
 import geopandas as gpd
 import numpy as np
 from scipy import stats
-from tqdm import tqdm
 import pickle
 import time
 
