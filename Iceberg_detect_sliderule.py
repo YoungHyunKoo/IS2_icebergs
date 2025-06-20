@@ -1,8 +1,6 @@
 import shapely.geometry
 import geopandas as gpd
 import numpy as np
-import matplotlib.pyplot as plt
-# from shapely.geometry import Polygon, LineString, Point
 from scipy import stats
 from tqdm import tqdm
 import pickle

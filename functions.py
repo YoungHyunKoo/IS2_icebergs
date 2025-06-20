@@ -1,7 +1,6 @@
 import warnings
 warnings.filterwarnings('ignore')
 import glob
-import netCDF4
 import numpy as np
 import pandas as pd
 import h5py  
@@ -165,35 +164,6 @@ def sampling_ATL03(df03, sampled_d = 2, q = 0.5):
         return sampled
     else:
         return pd.DataFrame({})
-
-# ADD MEAN SEA SURFACE HEIGHT (MSS) TO THE SAMPLED ATL03 DATA ===========================
-def add_MSS(df, ncfile, maxlat, minlat, maxlon, minlon): 
-    # df: sampled ATL03 file
-    # ncfile: filename of the MSS file (.nc format)
-    # maximum/minimum latitude/longitude of the ATL03 file
-    
-    nc = netCDF4.Dataset(ncfile, 'r')
-    lat = np.array(nc.variables['latitude'])
-    lon = np.array(nc.variables['longitude'])
-    mss = np.array(nc.variables['MSS'])
-    
-    buf = 0.5
-    if (maxlon*minlon<0) and abs(minlon) > 120:
-        idx0 = (lat <= maxlat+buf) & (lat >= minlat-buf) & ((lon < minlon+buf) | (lon > maxlon-buf))
-    else:
-        idx0 = (lat <= maxlat+buf) & (lat >= minlat-buf) & (lon <= maxlon+buf) & (lon >= minlon-buf)
-       
-    lat = lat[idx0]
-    lon = lon[idx0]
-    mss = mss[idx0]
-
-    for i in range(0, len(df)):
-        idx = np.argmin((lat-df['lat'][i])**2 + (lon-df['lon'][i])**2)
-        df.loc[i, 'mss'] = mss[idx]
-        
-    del lat, lon, mss
-    nc.close()
-    return df
 
 def detect_iceberg(df_sam, lb = 5, ub = 100):
     # df_sam: sampled ATL03 height profile (dataframe)
