@@ -125,27 +125,31 @@ def classify_icebergs(x, y, N = 5):
     x = x[idx]
     y = y[idx]
     dy = dy[idx]
-    
-    reg1 = stats.linregress(x, y)    
-    a1 = reg1.slope
-    b1 = reg1.intercept
-    r1 = reg1.rvalue
-    p1 = reg1.pvalue
-    
-    reg2 = stats.linregress(x, dy)    
-    a2 = reg2.slope
-    b2 = reg2.intercept
-    r2 = reg2.rvalue
-    p2 = reg2.pvalue
 
-    if p2 < 0.01 and r2 < -0.5:
-        ib_class = 1 # dome-shape
-    elif p1 < 0.01 and abs(a1) >= 20:
-        ib_class = 2 # slopy
-    elif ((p1 < 0.01 and abs(a1) < 20) or (p1 >= 0.01)) and np.nanstd(dy) <= 100:
-        ib_class = 3 # Tabular
+    if len(x) > 3:
+        reg1 = stats.linregress(x, y)    
+        a1 = reg1.slope
+        b1 = reg1.intercept
+        r1 = reg1.rvalue
+        p1 = reg1.pvalue
+        
+        reg2 = stats.linregress(x, dy)    
+        a2 = reg2.slope
+        b2 = reg2.intercept
+        r2 = reg2.rvalue
+        p2 = reg2.pvalue
+    
+        if p2 < 0.01 and r2 < -0.5:
+            ib_class = 1 # dome-shape
+        elif p1 < 0.01 and abs(a1) >= 20:
+            ib_class = 2 # slopy
+        elif ((p1 < 0.01 and abs(a1) < 20) or (p1 >= 0.01)) and np.nanstd(dy) <= 100:
+            ib_class = 3 # Tabular
+        else:
+            ib_class = 4
     else:
-        ib_class = 4       
+        ib_class = 0
+        a1 = 0
 
     return ib_class, a1
 
