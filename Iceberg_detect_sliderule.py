@@ -1,4 +1,4 @@
-import shapely.geometry
+# import shapely.geometry
 import geopandas as gpd
 import numpy as np
 from scipy import stats
@@ -42,7 +42,7 @@ datapath = args.datapath
 resultpath = args.resultpath
 
 # Antarctic continent
-antacric_file = f"/data/USNIC_ANTARC_shelf_2022.shp"
+antacric_file = f"data/USNIC_ANTARC_shelf_2022.shp"
 ice_shelf = gpd.read_file(antacric_file).to_crs('EPSG:3976') #.loc[1723:1723, :].reset_index(drop = True)
 
 w = [0.5, 1.0]
