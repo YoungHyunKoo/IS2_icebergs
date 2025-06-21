@@ -3,8 +3,7 @@ import geopandas as gpd
 import numpy as np
 from scipy import stats
 import pickle
-import time
-
+import time, os
 from functions import *
 import argparse
 
@@ -57,7 +56,7 @@ for lat0 in np.arange(-80, -60+w[0], w[0]*2):
 
         t0 = time.time()
         
-        if len(intersect) == 0: # Not in the Antarctic continent
+        if len(intersect) == 0 and os.path.exists(f"{resultpath}/Iceberg_table_{year}_{lat0}_{lon0}.csv") == False: # Not in the Antarctic continent
             center = [lat0, lon0]        
             gdf = read_ATL03_resample(center, w, year)
             t1 = time.time() - t0
