@@ -141,7 +141,7 @@ def classify_icebergs(x, y, N = 5):
     
         if p2 < 0.01 and r2 < -0.5 and (a2*x[0]+b2)*(a2*x[-1]+b2) < 0:
             ib_class = 1 # dome-shape
-        elif aabs(r1) > 0.5 and p1 < 0.01 and abs(a1) >= 20:
+        elif abs(r1) > 0.5 and p1 < 0.01 and abs(a1) >= 20:
             ib_class = 2 # slopy
         elif ((p1 < 0.01 and abs(a1) < 20) or (p1 >= 0.01)) and np.nanmean(abs(dy)) <= 100:
             ib_class = 3 # Tabular
