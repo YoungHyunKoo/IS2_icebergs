@@ -37,17 +37,18 @@ def read_ATL03_resample(center, w, year, resolution = 2.0):
     
     if len(gdf) > 0:
         gdf['lon'] = gdf.geometry.x
-        gdf['lat'] = gdf.geometry.y
-
-        count, value = np.histogram(gdf['h_mean'], bins = 5000, range = (-100, 100))
-        value = value[:-1] + (value[1] - value[2])/2
-        mode = value[np.argmax(count)]        
-        gdf.loc[:, 'fb'] = gdf['h_mean'].values - mode
+        gdf['lat'] = gdf.geometry.y       
         
         gdf = gdf.reset_index()
         gdf.loc[:, 'year'] = gdf['time'].dt.year
         gdf.loc[:, 'month'] = gdf['time'].dt.month
         gdf.loc[:, 'day'] = gdf['time'].dt.day
+
+        # Sea surface height
+        count, value = np.histogram(gdf.loc[(gdf['month'] >= 12) | (gdf['month'] <= 3), 'h_mean'], bins = 5000, range = (-100, 100))
+        value = value[:-1] + (value[1] - value[2])/2
+        mode = value[np.argmax(count)]        
+        gdf.loc[:, 'fb'] = gdf['h_mean'].values - mode
 
         # Remove some unnessary fields
         gdf = gdf.loc[gdf['fb'].values < 100, :].reset_index(drop = True)
@@ -112,25 +113,28 @@ def consecutive_grouping(df0, field = "fb", xfield = "distance", threshold = 10.
     return df0
 
 def classify_icebergs(x, y, N = 5):
+
     sm = np.ones(N)/N
     x = np.convolve(x, sm, mode='valid')
     y = np.convolve(y, sm, mode='valid')
-
-    # Calculate iceberg surface slope
-    slope = np.array([1, 1, -1, -1]) / 4    
+    slope = np.array([1, 1, -1, -1]) / 4
     dy = np.convolve(y, slope, mode='same') / np.convolve(x, slope, mode='same')
-    
-    # slope = np.array([1, 0, -1]) / 2
-    # ddy = (dy2[1:] - dy2[:-1])
-    # ddy2 = np.convolve(dy2, slope, mode='same')
+    # dx = np.convolve(x, np.ones(4)/4, mode='valid')
 
-    reg1 = stats.linregress(x, y)
+    idx = (abs(dy) < 500)
+    x = x[idx]
+    y = y[idx]
+    dy = dy[idx]
+    
+    reg1 = stats.linregress(x, y)    
     a1 = reg1.slope
     b1 = reg1.intercept
     r1 = reg1.rvalue
     p1 = reg1.pvalue
     
-    reg2 = stats.linregress(x, dy)
+    reg2 = stats.linregress(x, dy)    
+    a2 = reg2.slope
+    b2 = reg2.intercept
     r2 = reg2.rvalue
     p2 = reg2.pvalue
 
@@ -138,7 +142,7 @@ def classify_icebergs(x, y, N = 5):
         ib_class = 1 # dome-shape
     elif p1 < 0.01 and abs(a1) >= 20:
         ib_class = 2 # slopy
-    elif p1 >= 0.01 and abs(a1) < 20 and np.nanstd(dy) <= 100:
+    elif ((p1 < 0.01 and abs(a1) < 20) or (p1 >= 0.01)) and np.nanstd(dy) <= 100:
         ib_class = 3 # Tabular
     else:
         ib_class = 4       
@@ -168,7 +172,7 @@ def find_icebergs(gdf):
                             
                             if len(gdf_ib) > 25:
                                 ib_raw.append(gdf_ib)
-                                x = gdf_ib['x_atc'].values * 0.001
+                                x = (gdf_ib['x_atc'].values - gdf_ib['x_atc'].min()) * 0.001
                                 y = gdf_ib['fb'].values
                                 ib_class, a = classify_icebergs(x, y)
                                 ib_data.loc[k, "year"] = np.nanmean(gdf_ib["year"])

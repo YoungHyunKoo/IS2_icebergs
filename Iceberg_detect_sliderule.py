@@ -47,8 +47,8 @@ ice_shelf = gpd.read_file(antacric_file).to_crs('EPSG:3976') #.loc[1723:1723, :]
 
 w = [0.5, 1.0]
 
-for lat0 in np.arange(-80, -60, w[0]*2):
-    for lon0 in np.arange(-179, 179, w[1]*2):
+for lat0 in np.arange(-80, -60+w[0], w[0]*2):
+    for lon0 in np.arange(-179, 179+w[1], w[1]*2):
 
         # point = gpd.points_from_xy([-108], [-80], crs = 'EPSG:4326').to_crs('EPSG:3976')
         point = pd.DataFrame({"lat": [lat0], "lon": [lon0]})
