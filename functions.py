@@ -21,7 +21,7 @@ def read_ATL03_resample(center, w, year, resolution = 2.0):
     
     parms = {
         "poly": region,
-        "srt": 2, # Surface type: sea ice
+        "srt": 1, # Surface type: sea ice (2), ocean (1)
         "cnf": [3,4], # medium & high confidence
         "ats": 1.0,
         "cnt": 4,
