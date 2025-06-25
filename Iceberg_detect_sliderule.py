@@ -67,17 +67,12 @@ for lat0 in np.arange(-80, -60+w[0], w[0]*2):
                 ib_data, ib_raw = find_icebergs(gdf)
                 N = len(ib_data)
                 t2 = time.time() - t0 - t1
-                print(f"{year} - Lat: {lat0}, Lon: {lon0}; Icebergs: {N} ({t1:.1f} + {t2:.1f} seconds)")              
+                print(f"{year} - Lat: {lat0}, Lon: {lon0}; Icebergs: {N} ({t1:.1f} + {t2:.1f} seconds)")
+
+                ib_data.to_csv(f"{resultpath}/Iceberg_table_{year}_{lat0}_{lon0}.csv")
+                with open(f"{resultpath}/Iceberg_profile_{year}_{lat0}_{lon0}.pkl", "wb") as output:
+                    pickle.dump(ib_raw, output)
             else:
                 print(f"{year} - Lat: {lat0}, Lon: {lon0}; No available ATL03 data ({t1:.1f} seconds)")
-                
-            ib_data.to_csv(f"{resultpath}/Iceberg_table_{year}_{lat0}_{lon0}.csv")
-            with open(f"{resultpath}/Iceberg_profile_{year}_{lat0}_{lon0}.pkl", "wb") as output:
-                pickle.dump(ib_raw, output)
-            del gdf, ib_data, ib_raw
-                    
-# if len(gdf) > 0:
-#     # Display Statistics
-#     print("Reference Ground Tracks: {}".format(gdf["rgt"].unique()))
-#     print("Cycles: {}".format(gdf["cycle"].unique()))
-#     print("Received {} elevations".format(len(gdf)))
+
+            del gdf, ib_data, ib_raw            
