@@ -4,8 +4,18 @@ import glob
 import numpy as np
 import pandas as pd
 import os
+import h5py
 from sliderule import icesat2
 from scipy import stats
+import geemap
+import ee
+from datetime import datetime, timedelta
+
+try:
+  ee.Initialize(project = "ee-kooala317")
+except:
+  ee.Authenticate()
+  ee.Initialize(project = "ee-kooala317")
 
 def read_ATL03_resample(center, w, year, resolution = 2.0):
     lat_max = center[0] - w[0]
@@ -112,7 +122,7 @@ def consecutive_grouping(df0, field = "fb", xfield = "distance", threshold = 10.
     
     return df0
 
-def classify_icebergs(x, y, N = 5):
+def classify_icebergs(x, y, N = 5, detail = False):
 
     sm = np.ones(N)/N
     x = np.convolve(x, sm, mode='valid')
@@ -138,20 +148,48 @@ def classify_icebergs(x, y, N = 5):
         b2 = reg2.intercept
         r2 = reg2.rvalue
         p2 = reg2.pvalue
+
+        dy_mean = np.nanmean(abs(dy[2:-2]))
+        dy_std = np.nanstd(abs(dy[2:-2]))
     
-        if p2 < 0.01 and r2 < -0.5 and (a2*x[0]+b2)*(a2*x[-1]+b2) < 0:
+        if p2 < 0.01 and r2 < -0.7 and (a2*x[0]+b2)*(a2*x[-1]+b2) < 0:
             ib_class = 1 # dome-shape
-        elif abs(r1) > 0.5 and p1 < 0.01 and abs(a1) >= 20:
+        elif abs(r1) > 0.7 and p1 < 0.01 and abs(a1) >= 20:
             ib_class = 2 # slopy
-        elif ((p1 < 0.01 and abs(a1) < 20) or (p1 >= 0.01)) and np.nanmean(abs(dy)) <= 100:
+        elif ((abs(a1) < 20 and p1 < 0.01) or (p1 >= 0.01)) and dy_mean <= 50:
             ib_class = 3 # Tabular
         else:
             ib_class = 4
     else:
         ib_class = 0
-        a1 = 0
+        a1, r1, p1 = 0, 0, 0
+        a2, r2, p2 = 0, 0, 0
+        dy_mean, dy_std = 0, 0
 
-    return ib_class, a1
+    if detail:
+        return ib_class, a1, r1, p1, a2, r2, p2, dy_mean, dy_std
+    else:
+        return ib_class, a1
+
+def get_mss(year, month, lat0, lon0):
+    files = glob.glob(f"data/ATL21-02_{str(int(year))}{str(int(month)).zfill(2)}*.h5")
+    with h5py.File(files[0],'r') as f:
+        mean_ssh = f['monthly']['mean_weighted_mss'][:]
+        mean_ssh[mean_ssh > 1000] = np.nan
+    
+        lat = f['grid_lat'][:]
+        lon = f['grid_lon'][:]
+    
+        d = (lat-lat0)**2 + (lon-lon0)**2
+        i0, j0 = np.where(d == np.nanmin(d))        
+        i0 = i0[0]
+        j0 = j0[0]
+    
+        ssh = np.nanmean(mean_ssh[i0-1:i0+2, j0-1:j0+2])
+    if np.isnan(ssh):
+        ssh = 0
+    return ssh
+
 
 def find_icebergs(gdf):
     
@@ -172,7 +210,7 @@ def find_icebergs(gdf):
         
                     for ib_idx in gdf2['ind_fb_10'].unique():
                         if ib_idx > 0:
-                            gdf_ib = gdf2[(gdf2['ind_fb_10'] == ib_idx) & (gdf2['h_sigma'] < 1.0)].reset_index(drop = True)                        
+                            gdf_ib = gdf2[(gdf2['ind_fb_10'] == ib_idx) & (gdf2['h_sigma'] < 1.0)].reset_index(drop = True)                    
                             
                             if len(gdf_ib) > 25:
                                 ib_raw.append(gdf_ib)
@@ -192,3 +230,67 @@ def find_icebergs(gdf):
                                 k+=1
                                 
     return ib_data, ib_raw
+
+def fb2thick(f, pi = 850, pw = 1025):
+    h = pw / (pw-pi) * f
+    return h
+
+##### Read coincident Sentinel-1 images #####
+def get_S1_array(extent, t1, t2, pixel_size = 80, proj = "EPSG:3412"):
+    # proj - EPSG:3409 (EASE South); EPSG:3976 (NSIDC south polar stereo); EPSG:3857 (Web Mercator)
+    
+    # Define necessary functions with the defined bbox --------------------------
+    def collection_addbands(img):
+        bands = img.bandNames() # First band ('HH' or 'VV')
+        band = [ee.Algorithms.If(bands.contains('HH'), 'HH', 'VV')]
+        norm = img.select(band).divide(img.select('angle')).rename('norm')
+        img2 = img.addBands(norm, overwrite=True).select('norm')
+        return img2
+    def add_coverage(img):    
+        tol = 10000
+        overlap = img.geometry().intersection(extent, tol)
+        ratio = overlap.area(tol).divide(extent.area(tol))
+        return img.set({'coverage_ratio': ratio})
+    # calculate coverage area of image to roi
+    def coverage(img):
+        tol = 10000
+        overlap = img.geometry().intersection(extent, tol)
+        ratio = overlap.area(tol).divide(extent.area(tol))
+        return ratio.getInfo()
+    # -------------------------------------------------------------------------
+    
+    collection0 = ee.ImageCollection("COPERNICUS/S1_GRD").filterBounds(extent).filterDate(t1, t2)\
+    .filter(ee.Filter.eq('instrumentMode', 'EW'))
+    
+    collection1 = collection0.map(collection_addbands)
+    collection = collection1.map(add_coverage).filter(ee.Filter.gt('coverage_ratio', 0.5)).sort('coverage_ratio', False)
+
+    S1_ids = collection.aggregate_array('system:id').getInfo()    
+
+    if len(S1_ids) > 0:
+        # print(S1_ids, dp)
+        S1_id = S1_ids[0]
+        
+        img = collection_addbands(ee.Image(S1_id)).setDefaultProjection(proj)
+        #("EPSG:3857") #.reproject("EPSG:4326") # ("EPSG:3976") NSIDC southpolar
+        img = add_coverage(img)
+        band_coord = ee.Image.pixelCoordinates(proj)
+        img = img.addBands(band_coord)
+        img = img.clip(extent)
+
+        name = os.path.basename(S1_id)[17:32]
+        description = f"S1_{name}"                   
+        
+        img2 = img.select("norm")
+        xx2 = img.select("x")
+        yy2 = img.select("y")
+            
+        a = geemap.ee_to_numpy(img2, scale = pixel_size)[:, :, 0]
+        # xx = geemap.ee_to_numpy(xx2, scale = dp)[:, :, 0]
+        # yy = geemap.ee_to_numpy(yy2, scale = dp)[:, :, 0]
+        # a[a>=0] = np.nan
+
+        return a, S1_id #, xx, yy
+        
+    else:
+        return np.array([]), "" #, np.array([]), np.array([])
